@@ -64,10 +64,41 @@ public class MainActivity extends Activity {
   int indexOf(String[] arr,String value){for(int i=0;i<arr.length;i++)if(arr[i].equals(value))return i;return 0;}
   String month(){return new java.text.SimpleDateFormat("yyyy-MM",java.util.Locale.US).format(new java.util.Date());}
   synchronized float spent(){String m=month();if(!m.equals(pref.getString("budget_month",""))){pref.edit().putString("budget_month",m).putFloat("spent",0).commit();}return pref.getFloat("spent",0);}
+  void copyText(String text){
+    android.content.ClipboardManager cb=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);
+    cb.setPrimaryClip(android.content.ClipData.newPlainText("FPRO AI LAB sohbet",text));
+    Toast.makeText(this,"Panoya kopyalandı",Toast.LENGTH_SHORT).show();
+  }
+  String transcript(){
+    StringBuilder sb=new StringBuilder("FPRO AI LAB — Sohbet Geçmişi\\n\\n");
+    for(int i=0;i<history.length();i++){
+      JSONObject o=history.optJSONObject(i);
+      if(o!=null)sb.append(o.optString("who")).append(": ").append(o.optString("text")).append("\\n\\n");
+    }
+    return sb.toString().replace("\\n","\n");
+  }
+  android.graphics.drawable.GradientDrawable bubble(int color){
+    android.graphics.drawable.GradientDrawable d=new android.graphics.drawable.GradientDrawable();
+    d.setColor(color);d.setCornerRadius(22);return d;
+  }
   void chat(){
     content.addView(label("Ortak sohbet · GPT + Claude",17));
-    content.addView(label("Tahmini kullanım: $"+spent()+" / $20",13));
-    for(int i=0;i<history.length();i++){JSONObject o=history.optJSONObject(i);if(o!=null)content.addView(label(o.optString("who")+": "+o.optString("text"),14));}
+    content.addView(label("Tahmini kullanım: $"+String.format(java.util.Locale.US,"%.5f",spent())+" / $20",13));
+    button(content,"Tüm sohbeti kopyala",()->copyText(transcript()));
+    for(int i=0;i<history.length();i++){
+      JSONObject o=history.optJSONObject(i);if(o==null)continue;
+      String who=o.optString("who"),message=o.optString("text");
+      int accent=who.equals("GPT")?0xff5ad9e8:who.equals("Claude")?0xffb59aff:who.equals("Sen")?0xff87e0b0:0xffffba75;
+      int surface=who.equals("GPT")?0xff123542:who.equals("Claude")?0xff29203e:who.equals("Sen")?0xff18382f:0xff383022;
+      LinearLayout card=new LinearLayout(this);card.setOrientation(1);card.setPadding(14,12,14,12);card.setBackground(bubble(surface));
+      LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(-1,-2);cp.setMargins(8,7,8,7);content.addView(card,cp);
+      TextView heading=label(who.equals("GPT")?"GPT · OpenAI":who.equals("Claude")?"CLAUDE · Anthropic":who,13);
+      heading.setTextColor(accent);heading.setTypeface(null,android.graphics.Typeface.BOLD);card.addView(heading);
+      TextView body=label(message,15);card.addView(body);
+      TextView hint=label("Dokunarak kopyala",11);hint.setTextColor(0xffaebbd0);card.addView(hint);
+      card.setOnClickListener(v->copyText(who+": "+message));
+      card.setOnLongClickListener(v->{copyText(who+": "+message);return true;});
+    }
     LinearLayout compose=new LinearLayout(this);compose.setOrientation(1);root.addView(compose);
     mode=new Spinner(this);mode.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,new String[]{"Claude","GPT","İkisi sırayla"}));compose.addView(mode);
     input=field("Mesaj yaz...","");compose.addView(input);button(compose,"Gönder",()->send());
